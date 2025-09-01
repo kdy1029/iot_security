@@ -23,21 +23,28 @@ def normalize_pkg(line: str) -> str:
     # some lines may include spaces or bad chars
     return s
 
+from datetime import datetime, timezone
+
 def to_ts(dt_val):
-    """google-play-scraper 'updated'는 문자열일 수도, datetime일 수도 있어 방어적으로 처리"""
     if not dt_val:
         return None
     if isinstance(dt_val, datetime):
-        # naive → UTC로 간주
-        if dt_val.tzinfo is None:
-            return dt_val.replace(tzinfo=timezone.utc)
-        return dt_val
-    # 문자열이면 최대한 파싱(간단 처리)
-    try:
-        # 예: 'August 20, 2025' 같은 포맷
-        return datetime.strptime(str(dt_val), "%B %d, %Y").replace(tzinfo=timezone.utc)
-    except Exception:
-        return None
+        return dt_val if dt_val.tzinfo else dt_val.replace(tzinfo=timezone.utc)
+
+    s = str(dt_val).strip()
+    # 흔한 날짜 포맷들을 순차 시도
+    fmts = [
+        "%B %d, %Y",   # August 20, 2025
+        "%b %d, %Y",   # Aug 20, 2025
+        "%Y-%m-%d",    # 2025-08-20 (가끔 서드파티 캐시/변환)
+    ]
+    for f in fmts:
+        try:
+            return datetime.strptime(s, f).replace(tzinfo=timezone.utc)
+        except Exception:
+            pass
+    return None  # 마지막까지 실패하면 None
+
 
 UPSERT_SQL = """
 INSERT INTO play_apps (
@@ -63,9 +70,9 @@ INSERT INTO play_apps (
   price        = EXCLUDED.price,
   free         = EXCLUDED.free,
   currency     = EXCLUDED.currency,
-  updated      = EXCLUDED.updated,
-  version      = EXCLUDED.version,
-  android_ver  = EXCLUDED.android_ver,
+  updated      = COALESCE(EXCLUDED.updated, play_apps.updated),      -- ✅ 중요
+  version      = COALESCE(EXCLUDED.version, play_apps.version),      -- 선택적
+  android_ver  = COALESCE(EXCLUDED.android_ver, play_apps.android_ver), -- 선택적
   contains_ads = EXCLUDED.contains_ads,
   offers_iap   = EXCLUDED.offers_iap,
   url          = EXCLUDED.url,
