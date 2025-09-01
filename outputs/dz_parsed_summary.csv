@@ -1,0 +1,11 @@
+app_id,total_activities,exported_activities,total_services,exported_services,total_receivers,exported_receivers,total_providers,exported_providers,unknown_exported_true,uris_found,sqli_hits,traversal_hits,export_rate_activities,export_rate_services,export_rate_receivers,export_rate_providers,riskish
+com.ipc360home,4,4,1.0,1,2,2,,0,0,10,4,0,1.0,1.0,1.0,0.0,11
+com.ivuu,7,7,2.0,2,6,6,,0,0,8,4,0,1.0,1.0,1.0,0.0,19
+com.nexhthome,4,4,,0,1,1,,0,0,30,4,0,1.0,0.0,1.0,0.0,9
+com.pro1.thermostat,2,2,2.0,2,2,2,,0,0,26,4,0,1.0,1.0,1.0,0.0,10
+com.roku.remote,3,3,2.0,2,3,4,,0,0,8,4,0,1.0,1.0,1.3333333333333333,0.0,13
+com.roku.rokuhome,12,12,3.0,3,3,3,,0,0,6,4,0,1.0,1.0,1.0,0.0,22
+com.sec.android.app.shealth,17,17,13.0,8,12,12,12.0,12,0,38,4,0,1.0,0.6153846153846154,1.0,1.0,53
+com.xiaomi.smarthome,48,51,15.0,15,19,26,6.0,6,0,40,4,0,1.0625,1.0,1.368421052631579,1.0,102
+com.yunyi.smartcamera,19,19,7.0,7,6,6,1.0,1,0,22,4,0,1.0,1.0,1.0,1.0,37
+io.homeassistant.companion.android,18,17,18.0,20,9,12,,0,0,12,4,0,0.9444444444444444,1.1111111111111112,1.3333333333333333,0.0,53
