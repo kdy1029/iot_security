@@ -1,4 +1,3 @@
-```markdown
 # Assessing IoT Android App Security: Static Components, Privacy Threats and Vulnerabilities
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -55,57 +54,33 @@ In the 12th EAI International Conference on Mobility, IoT and Smart Cities, Dece
 ## Project Structure
 
 ```
-
 .
-├── data/                     # APK files or extracted datasets
-├── analysis/                 # Core analysis scripts (static analysis, parsing)
-├── results/                  # Output reports and findings
-├── utils/                    # Helper functions (APK parsing, feature extraction)
-├── main.py                   # Entry point for full analysis pipeline
-├── analyze_manifest.py       # AndroidManifest.xml analysis
-├── extract_components.py     # Extract app components
-├── privacy_analysis.py       # Sensitive data & privacy risk detection
-├── requirements.txt          # Python dependencies
-└── README.md                 # This file
-
-````
+├── data/
+├── analysis/
+├── results/
+├── utils/
+├── main.py
+├── analyze_manifest.py
+├── extract_components.py
+├── privacy_analysis.py
+├── requirements.txt
+└── README.md
+```
 
 ---
 
 ## Methodology Overview
 
-The pipeline follows a structured workflow:
-
-1. **APK Collection**
-   - IoT companion apps are collected from public sources (e.g., app stores)
-
-2. **Static Analysis**
-   - APKs are decompiled
-   - Manifest and bytecode are analyzed
-
-3. **Component Extraction**
-   - Identify exposed components and entry points
-
-4. **Permission Analysis**
-   - Evaluate declared permissions vs actual usage
-
-5. **Privacy Threat Modeling**
-   - Detect sensitive data flows and potential leaks
-
-6. **Vulnerability Identification**
-   - Map findings to known security issues (e.g., improper export, weak protection)
+1. APK Collection  
+2. Static Analysis  
+3. Component Extraction  
+4. Permission Analysis  
+5. Privacy Threat Modeling  
+6. Vulnerability Identification  
 
 ---
 
 ## Getting Started
-
-### Prerequisites
-
-- Python 3.8+
-- Java (for APK analysis tools, if required)
-- Android analysis tools (e.g., apktool, JADX)
-
----
 
 ### Installation
 
@@ -113,19 +88,11 @@ The pipeline follows a structured workflow:
 git clone <your-repository-url>
 cd <repository-name>
 pip install -r requirements.txt
-````
+```
 
 ---
 
-### How to Run
-
-1. **Prepare APK Files**
-
-Place IoT Android APK files inside the `data/` directory.
-
----
-
-2. **Run Full Analysis Pipeline**
+### Run
 
 ```sh
 python main.py
@@ -133,72 +100,7 @@ python main.py
 
 ---
 
-3. **Run Individual Modules (Optional)**
-
-* Manifest Analysis:
-
-```sh
-python analyze_manifest.py
-```
-
-* Component Extraction:
-
-```sh
-python extract_components.py
-```
-
-* Privacy Analysis:
-
-```sh
-python privacy_analysis.py
-```
-
----
-
-## Results
-
-This project demonstrates that many IoT Android applications expose significant security and privacy risks:
-
-* **Exposed Components**
-  Multiple apps contain exported components without proper protection
-
-* **Over-Privileged Permissions**
-  Apps often request more permissions than required for functionality
-
-* **Sensitive Data Exposure**
-  Potential leakage of user data through insecure communication or improper handling
-
-* **Attack Surface Expansion**
-  Misconfigured components increase the risk of:
-
-  * Intent injection
-  * Privilege escalation
-  * Data exfiltration
-
-Detailed findings are stored in the `results/` directory.
-
----
-
-## Use Cases
-
-* Academic research on IoT security
-* Security auditing of Android IoT apps
-* Dataset generation for ML-based vulnerability detection
-* Benchmarking static analysis tools
-
----
-
-## Future Work
-
-* Integration with dynamic analysis (runtime behavior tracking)
-* Automated vulnerability classification using ML models
-* Expansion to cross-platform IoT ecosystems (iOS, firmware)
-
----
-
 ## Citation
-
-If you find this work useful in your research, please consider citing our paper:
 
 ```bibtex
 @inproceedings{samreen2025assessing,
@@ -209,13 +111,4 @@ If you find this work useful in your research, please consider citing our paper:
   month={December},
   organization={EAI}
 }
-```
-
----
-
-## License
-
-This project is licensed under the MIT License.
-
-```
 ```
