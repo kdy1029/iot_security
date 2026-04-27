@@ -40,7 +40,7 @@ def main():
     # Recommended to use environment variables: PG_DSN="dbname=iot_security user=postgres password=*** host=localhost port=5432"
     dsn = os.environ.get(
         "PG_DSN",
-        "dbname=iot_security user=postgres password=dud0926! options='-c statement_timeout=0'"
+        "dbname=iot_security user=postgres password=password options='-c statement_timeout=0'"
     )
     conn = psycopg2.connect(dsn)
     conn.autocommit = False
