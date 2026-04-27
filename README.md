@@ -9,77 +9,91 @@ This repository contains the data analysis scripts and visualization code for th
 ## Overview
 
 This project provides a suite of Python scripts to automate the security assessment of Android applications, with a particular focus on Internet of Things (IoT) apps. The workflow includes:
-1.  Fetching application metadata from the Google Play Store.
-2.  Importing and parsing static analysis reports from **MobSF** and **Drozer**.
-3.  Storing the structured data in a PostgreSQL database.
-4.  Querying the database to perform analysis.
-5.  Generating tables (LaTeX) and figures (PDF, PNG) that highlight key security and privacy metrics.
+1. Fetching application metadata from the Google Play Store.
+2. Importing and parsing static analysis reports from **MobSF** and **Drozer**.
+3. Storing the structured data in a PostgreSQL database.
+4. Querying the database to perform risk scoring and security analysis.
+5. Generating tables (LaTeX) and figures (PDF, PNG) that highlight key security and privacy metrics.
 
 ## Project Structure
 
--   `list.csv`: Input file containing the package names of Android apps to be analyzed.
--   `results/`: Directory to store raw JSON output files from MobSF static analysis.
--   `dz_out_*/`: Directories containing raw log files from Drozer scans.
--   `*.py`: Python scripts for data processing, database interaction, and analysis.
--   `outputs/`: Generated CSV files and summaries from `parse_drozer_logs.py`.
--   `tables/`: Generated LaTeX tables summarizing the analysis results.
--   `figures/`: Generated plots and graphs visualizing the findings.
+```text
+iot_security/
+├── src/                     # Core application logic
+│   ├── database.py          # Database connection management
+│   ├── data_ingestion.py    # Importing JSON and logs into PostgreSQL
+│   ├── analysis.py          # SQL logic and pandas dataframe processing
+│   └── visualization.py     # Generating LaTeX tables and matplotlib figures
+├── scripts/                 # Executable scripts
+│   ├── run_pipeline.py      # Main entry point to run the analysis pipeline
+│   └── fetch_metadata.py    # Google Play Store metadata fetcher
+├── results/                 # Raw JSON output files from MobSF static analysis
+├── dz_out_*/                # Raw log directories from Drozer scans (not committed)
+├── tables/                  # Generated LaTeX tables
+├── figures/                 # Generated plots and graphs
+├── outputs/                 # Drozer parsed outputs
+├── list.csv                 # Input file containing the package names of Android apps
+├── requirements.txt         # Python dependencies
+└── README.md
+```
 
 ## Setup
 
-### 1. Dependencies
+### 1. Requirements
 
-This project requires Python 3 and a running PostgreSQL instance. You can install the necessary Python libraries using pip:
+This project requires Python 3.8+ and a running PostgreSQL instance. Install the dependencies using pip:
 
 ```bash
-pip install pandas sqlalchemy psycopg2-binary matplotlib google-play-scraper tabulate python-slugify
+pip install -r requirements.txt
 ```
-
-It is recommended to create a `requirements.txt` file for better dependency management.
 
 ### 2. Database Configuration
 
-The scripts connect to a PostgreSQL database. The connection string is retrieved from the `PG_DSN` environment variable. You should set it before running the scripts.
+The application requires a PostgreSQL database. The connection string is retrieved from the `PG_DSN` environment variable. **Do not hardcode credentials in the scripts.**
 
-**Example:**
-```bash
-# On Linux/macOS
-export PG_DSN="dbname=iot_security user=postgres password=your_password host=localhost"
+1.  Create a PostgreSQL database and user:
+    ```sql
+    CREATE DATABASE iot_security;
+    CREATE USER postgres WITH PASSWORD 'your_secure_password';
+    GRANT ALL PRIVILEGES ON DATABASE iot_security TO postgres;
+    ```
+2.  Set the `PG_DSN` environment variable:
 
-# On Windows (Command Prompt)
-set PG_DSN="dbname=iot_security user=postgres password=your_password host=localhost"
-```
+    **Linux / macOS:**
+    ```bash
+    export PG_DSN="postgresql://postgres:your_secure_password@localhost:5432/iot_security"
+    ```
 
-The project assumes a database schema with tables like `play_apps` and `app_analysis`, along with several views (`v_risk_score`, `v_masvs_mapping`, etc.) to facilitate querying. You will need to create these tables and views based on the analysis goals before running the scripts.
+    **Windows (PowerShell):**
+    ```powershell
+    $env:PG_DSN="postgresql://postgres:your_secure_password@localhost:5432/iot_security"
+    ```
+
+3.  *Note:* The project assumes you have pre-configured tables (`play_apps`, `app_analysis`) and views (`v_risk_score`, `v_masvs_mapping`, `v_mobsf_permissions`, etc.) according to your analysis schema.
 
 ## Workflow
 
-1.  **Prepare Inputs**:
-    -   Populate `list.csv` with the Android package names you want to analyze, one per line.
-    -   Place the JSON reports from your MobSF scans into the `results/` directory.
-    -   Place the output directories from your Drozer scans (e.g., `dz_out_com.example.app`) into the project root.
+### 1. Prepare Inputs
+1. Populate `list.csv` with the Android package names you want to analyze, one per line.
+2. Place the JSON reports from your MobSF scans into the `results/` directory.
+3. Place the output directories from your Drozer scans (e.g., `dz_out_com.example.app`) into the root directory.
 
-2.  **Fetch App Metadata**:
-    Run `extract_desc.py` to fetch details from the Google Play Store and populate the `play_apps` table in your database.
-    ```bash
-    python extract_desc.py
-    ```
+### 2. Fetch App Metadata (Optional)
+If you need fresh metadata from the Google Play Store, you can run the ingestion script:
+```bash
+python scripts/fetch_metadata.py list.csv
+```
 
-3.  **Import Analysis Data**:
-    -   Run `import_json_to_db.py` to parse and import the MobSF JSON reports into the `app_analysis` table.
-        ```bash
-        python import_json_to_db.py
-        ```
-    -   Run `parse_drozer_logs.py` to parse Drozer logs and save the summary to the `outputs/` directory.
-        ```bash
-        python parse_drozer_logs.py --root "dz_out_*"
-        ```
+### 3. Run Analysis Pipeline
+The `run_pipeline.py` script automates the process of connecting to the database, importing MobSF JSON results, parsing Drozer logs, and generating all visualizations and tables.
 
-4.  **Generate Results**:
-    Run the analysis scripts to generate the final tables and figures from the data stored in the database.
-    ```bash
-    python generate_graphs.py
-    python generate_tables.py
-    python generate_masvs_plots.py
-    ```
-    The final artifacts will be saved in the `tables/` and `figures/` directories.
+```bash
+python scripts/run_pipeline.py
+```
+
+## Generated Outputs
+
+After running the pipeline, the following artifacts are generated:
+- **`tables/`**: LaTeX tables for Top Dangerous Permissions, Insecure Flags, and Credential Findings.
+- **`figures/`**: PDF and PNG graphs for Top Domains, Risk Score Histograms, and MASVS Violations.
+- **`outputs/`**: CSV summaries and extracted URIs from the Drozer log parser.
