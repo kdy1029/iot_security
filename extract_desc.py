@@ -32,18 +32,18 @@ def to_ts(dt_val):
         return dt_val if dt_val.tzinfo else dt_val.replace(tzinfo=timezone.utc)
 
     s = str(dt_val).strip()
-    # 흔한 날짜 포맷들을 순차 시도
+    # Try common date formats sequentially
     fmts = [
         "%B %d, %Y",   # August 20, 2025
         "%b %d, %Y",   # Aug 20, 2025
-        "%Y-%m-%d",    # 2025-08-20 (가끔 서드파티 캐시/변환)
+        "%Y-%m-%d",    # 2025-08-20 (Sometimes from third-party caches/conversions)
     ]
     for f in fmts:
         try:
             return datetime.strptime(s, f).replace(tzinfo=timezone.utc)
         except Exception:
             pass
-    return None  # 마지막까지 실패하면 None
+    return None  # Return None if all attempts fail
 
 
 UPSERT_SQL = """
@@ -70,9 +70,9 @@ INSERT INTO play_apps (
   price        = EXCLUDED.price,
   free         = EXCLUDED.free,
   currency     = EXCLUDED.currency,
-  updated      = COALESCE(EXCLUDED.updated, play_apps.updated),      -- ✅ 중요
-  version      = COALESCE(EXCLUDED.version, play_apps.version),      -- 선택적
-  android_ver  = COALESCE(EXCLUDED.android_ver, play_apps.android_ver), -- 선택적
+  updated      = COALESCE(EXCLUDED.updated, play_apps.updated),      -- ✅ Important
+  version      = COALESCE(EXCLUDED.version, play_apps.version),      -- Optional
+  android_ver  = COALESCE(EXCLUDED.android_ver, play_apps.android_ver), -- Optional
   contains_ads = EXCLUDED.contains_ads,
   offers_iap   = EXCLUDED.offers_iap,
   url          = EXCLUDED.url,
@@ -82,9 +82,9 @@ INSERT INTO play_apps (
 """
 
 def fetch_one(app_id: str, lang="en", country="us"):
-    # google-play-scraper는 지역/언어에 따라 결과가 달라짐
+    # google-play-scraper results vary by region/language
     data = play_app(app_id, lang=lang, country=country)
-    # 관심 필드 추출 (없는 경우 대비 .get 사용)
+    # Extract fields of interest (use .get for safety against missing keys)
     rec = {
         "app_id":       app_id,
         "title":        data.get("title"),
@@ -98,7 +98,7 @@ def fetch_one(app_id: str, lang="en", country="us"):
         "installs":     data.get("installs"),
         "min_installs": data.get("minInstalls"),
         "max_installs": data.get("maxInstalls"),
-        "price":        data.get("price"),     # USD 기준 금액(무료면 0)
+        "price":        data.get("price"),     # Price in USD (0 if free)
         "free":         data.get("free"),
         "currency":     data.get("currency"),
         "updated":      to_ts(data.get("updated")),
@@ -108,18 +108,18 @@ def fetch_one(app_id: str, lang="en", country="us"):
         "offers_iap":   data.get("offersIAP"),
         "url":          data.get("url"),
         "icon":         data.get("icon"),
-        "hist":         psycopg2.extras.Json(data),  # 전체 원본 저장
+        "hist":         psycopg2.extras.Json(data),  # Store the entire original JSON
     }
     return rec
 
 def main():
-    # 입력 파일
+    # Input file
     pkgs_file = sys.argv[1] if len(sys.argv) > 1 else "list.csv"
     if not os.path.exists(pkgs_file):
         print(f"[!] packages file not found: {pkgs_file}")
         sys.exit(1)
 
-    # 패키지 목록 읽기 & 정리
+    # Read & clean up package list
     raw_lines = [l.strip() for l in open(pkgs_file, encoding="utf-8") if l.strip()]
     app_ids = []
     for line in raw_lines:
@@ -131,7 +131,7 @@ def main():
         print("[!] No valid app IDs found.")
         sys.exit(1)
 
-    # PG 연결
+    # Connect to PostgreSQL
     conn = psycopg2.connect(PG_DSN)
     conn.autocommit = False
 
@@ -142,12 +142,12 @@ def main():
                 rec = fetch_one(app_id, lang="en", country="us")
                 cur.execute(UPSERT_SQL, rec)
                 ok += 1
-                # 간단한 진행 로그
+                # Simple progress log
                 print(f"[OK] {app_id} - {rec.get('title')}")
             except Exception as e:
                 conn.rollback()
                 err += 1
-                # 실패 시 기본 정보만 기록할 수도 있음(옵션)
+                # On failure, could optionally log basic info
                 print(f"[ERR] {app_id} - {e}")
             else:
                 conn.commit()

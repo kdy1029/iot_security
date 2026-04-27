@@ -7,8 +7,8 @@ DATA_DIR = Path("results")
 
 def derive_app_id(fname: str) -> str:
     """
-    파일명이 'com.foo.bar.apk.json' -> 'com.foo.bar'
-          또는 'com.foo.bar.json'   -> 'com.foo.bar'
+    Derives 'com.foo.bar' from 'com.foo.bar.apk.json'
+    or 'com.foo.bar.json'.
     """
     base = re.sub(r"\.json$", "", fname, flags=re.IGNORECASE)
     if base.endswith(".apk"):
@@ -16,14 +16,14 @@ def derive_app_id(fname: str) -> str:
     return base
 
 def clean_json_file(path: Path):
-    """파일을 읽어 JSON 파싱. 제어문자 제거 후 재시도."""
+    """Reads and parses a JSON file, retrying after removing control characters."""
     raw = path.read_text(encoding="utf-8", errors="replace")
-    # 흔한 제어문자 제거 (NUL은 이후 strip_nuls에서 한 번 더 방어)
+    # Remove common control characters (NUL is handled again in strip_nuls)
     raw = re.sub(r"[\x00-\x1F\x7F]", "", raw)
     return json.loads(raw)
 
 def strip_nuls(obj):
-    """파싱된 파이썬 객체를 재귀적으로 순회하며 문자열 내 NUL(\x00) 및 '\\u0000' 제거."""
+    """Recursively traverses a Python object to remove NUL (\x00) and '\\u0000' from strings."""
     if obj is None:
         return None
     if isinstance(obj, str):
@@ -37,7 +37,7 @@ def strip_nuls(obj):
     return obj
 
 def main():
-    # 환경변수 권장: PG_DSN="dbname=iot_security user=postgres password=*** host=localhost port=5432"
+    # Recommended to use environment variables: PG_DSN="dbname=iot_security user=postgres password=*** host=localhost port=5432"
     dsn = os.environ.get(
         "PG_DSN",
         "dbname=iot_security user=postgres password=dud0926! options='-c statement_timeout=0'"
@@ -46,15 +46,15 @@ def main():
     conn.autocommit = False
     cur = conn.cursor()
 
-    # 1) play_apps에서 app_id 목록 로드 (기준 집합)
+    # 1) Load the set of app_ids from play_apps (as the reference set)
     cur.execute("select app_id from public.play_apps")
     allowed_ids = {row[0] for row in cur.fetchall()}
     if not allowed_ids:
-        print("[ABORT] play_apps에 app_id가 없습니다.")
+        print("[ABORT] No app_ids found in play_apps.")
         cur.close(); conn.close()
         return
 
-    # 2) 파일들 스캔 → allowed_ids 에 있는 것만 수집
+    # 2) Scan files and collect only those present in allowed_ids
     rows = []
     kept = 0
     skipped = 0
@@ -68,29 +68,29 @@ def main():
 
         path = DATA_DIR / fname
         try:
-            data = clean_json_file(path)          # 파싱
-            data = strip_nuls(data)               # NUL 제거
+            data = clean_json_file(path)          # Parse
+            data = strip_nuls(data)               # Remove NUL characters
         except Exception as e:
             print(f"[SKIP:parse] {fname}: {e}")
             skipped += 1
             continue
 
-        rows.append((app_id, Json(data)))         # 파이썬 객체 그대로 Json()에
+        rows.append((app_id, Json(data)))         # Pass the Python object directly to Json()
         kept += 1
 
     if not rows:
-        print("[DONE] 업서트할 행이 없습니다. (필터 결과 0)")
+        print("[DONE] No rows to upsert (0 after filtering).")
         cur.close(); conn.close()
         return
 
-    # 3) UPSERT (파일에 있는 것 중 play_apps에 있는 app_id만)
+    # 3) UPSERT (only for app_ids from files that are also in play_apps)
     try:
         upsert_sql = """
             insert into public.app_analysis (app_id, data)
             values %s
             on conflict (app_id) do update set data = excluded.data
         """
-        # JSON이 크면 50~200 정도로 batch 조절
+        # Adjust batch size for large JSON objects, e.g., 50-200
         BATCH = 100
         for i in range(0, len(rows), BATCH):
             execute_values(cur, upsert_sql, rows[i:i+BATCH], template="(%s, %s)")

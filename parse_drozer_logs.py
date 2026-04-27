@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-parse_drozer_logs.py — Drozer 결과 파서 (완성본)
-지원:
-  • Attack Surface 요약형(“… activities exported …”) + 섹션형(Activities/Services/Receivers/Providers)
-  • app.activity.info / app.service.info / app.broadcast.info 클래스명 카운트로 total_* 보완
-  • app.provider.info 의 'Authority:' 라인 카운트로 total_providers 보완
-  • provider 스캐너(finduris / injection / traversal)에서 URI 수집 및 히트 수 집계
+parse_drozer_logs.py — A parser for Drozer results (final version)
+Supports:
+  • Attack Surface summary format (“… activities exported …”) + section-based format (Activities/Services/Receivers/Providers)
+  • Complements total_* counts using class name counts from app.activity.info / app.service.info / app.broadcast.info
+  • Complements total_providers by counting 'Authority:' lines from app.provider.info
+  • Collects URIs and aggregates hits from provider scanners (finduris / injection / traversal)
 
-출력:
+Output:
   - outputs/dz_parsed_summary.csv
   - outputs/dz_uris.csv
-  - outputs/dz_summary.md (tabulate 필요)
+  - outputs/dz_summary.md (requires tabulate)
   - outputs/dz_summary.tex
 
-사용:
+Usage:
   pip install pandas tabulate
   python parse_drozer_logs.py --root "dz_out_*"
 """
@@ -27,45 +27,45 @@ from typing import Dict, List, Tuple
 
 import pandas as pd
 
-# ---------- 공통 패턴 ----------
-# Attack Surface 섹션형
+# ---------- Common Patterns ----------
+# Attack Surface (Section-based)
 ATTACK_SURFACE_HEADER = re.compile(r'^\s*Attack Surface\s*$', re.IGNORECASE)
 SECTION_LINE = re.compile(r'^\s*(Activities|Services|Receivers|Providers)\s*$', re.IGNORECASE)
 EXPORTED_LINE = re.compile(r'\bexported\s*=\s*(true|false)', re.IGNORECASE)
 EXPORTED_INLINE = re.compile(r'\bexported\b[^a-zA-Z0-9]+(true|false)', re.IGNORECASE)
 
-# Attack Surface 요약형(샘플과 같은 줄 형식)
+# Attack Surface (Summary-style, single line format)
 AS_SUM_ACT = re.compile(r'^\s*(\d+)\s+activities\s+exported\b', re.IGNORECASE)
 AS_SUM_RCV = re.compile(r'^\s*(\d+)\s+broadcast\s+receivers\s+exported\b', re.IGNORECASE)
 AS_SUM_PROV = re.compile(r'^\s*(\d+)\s+content\s+providers\s+exported\b', re.IGNORECASE)
 AS_SUM_SVC = re.compile(r'^\s*(\d+)\s+services\s+exported\b', re.IGNORECASE)
 
-# app.*.info 클래스명 라인(총 개수 보완용; 뒤에 설명이 조금 붙어도 허용)
+# app.*.info class name lines (to supplement total counts; allows for minor trailing text)
 CLASS_ACTIVITY = re.compile(r'^\s+[A-Za-z0-9._$]+\.[A-Za-z0-9_$]*Activity[^\S\r\n]*.*$', re.IGNORECASE)
 CLASS_SERVICE  = re.compile(r'^\s+[A-Za-z0-9._$]+\.[A-Za-z0-9_$]*Service[^\S\r\n]*.*$',  re.IGNORECASE)
 CLASS_RECEIVER = re.compile(r'^\s+[A-Za-z0-9._$]+\.[A-Za-z0-9_$]*Receiver[^\S\r\n]*.*$', re.IGNORECASE)
 
-# provider info 블록용
+# For provider info blocks
 PROVIDER_PKG_HEADER = re.compile(r'^\s*Package:\s+(\S+)\s*$', re.IGNORECASE)
 PROVIDER_AUTH_LINE  = re.compile(r'^\s*Authority:\s+([A-Za-z0-9._-]+)\s*$', re.IGNORECASE)
 
-# Provider 관련 스캐너 공통
+# Common for Provider-related scanners
 URI_PATTERN = re.compile(r'content://[A-Za-z0-9._~\-%/]+')
 SQLI_HIT = re.compile(r'(SQLi|Injection.*(possible|vulnerable)|\bVULNERABLE\b)', re.IGNORECASE)
 TRAVERSAL_HIT = re.compile(r'(Path\s*Traversal|traversal.*(possible|vulnerable))', re.IGNORECASE)
 
 
-# ---------- 파싱 로직 ----------
+# ---------- Parsing Logic ----------
 def parse_attack_surface(text: str) -> Dict[str, int]:
     """
-    Attack Surface 파싱:
-      1) 요약형(“… activities exported …”) 발견 시 exported_*만 확정
-      2) 섹션형(Activities/Services/Receivers/Providers) 발견 시 total_* + exported_* 계산
-      3) 둘 다 없으면 파일 전체에서 exported=true 추정치만 기록
+    Parses the Attack Surface section:
+      1) If summary style (“… activities exported …”) is found, confirms only exported_* counts.
+      2) If section-based (Activities/Services/Receivers/Providers) is found, calculates total_* + exported_*.
+      3) If neither is found, records an estimate of exported=true from the entire file.
     """
     lines = text.splitlines()
 
-    # 1) 요약형
+    # 1) Summary style
     sum_act = sum_rcv = sum_prov = sum_svc = None
     for line in lines:
         if sum_act is None:
@@ -102,7 +102,7 @@ def parse_attack_surface(text: str) -> Dict[str, int]:
             'unknown_exported_true': 0,
         }
 
-    # 2) 섹션형
+    # 2) Section-based
     exported = {'activities': 0, 'services': 0, 'receivers': 0, 'providers': 0}
     totals   = {'activities': 0, 'services': 0, 'receivers': 0, 'providers': 0}
     n = len(lines)
@@ -160,7 +160,7 @@ def parse_attack_surface(text: str) -> Dict[str, int]:
 
 
 def derive_totals_from_classnames(text: str) -> Dict[str, int]:
-    """app.activity.info / app.service.info / app.broadcast.info의 클래스명 라인을 세어 totals 보완."""
+    """Supplements total counts by counting class name lines from app.activity.info / app.service.info / app.broadcast.info."""
     lines = text.splitlines()
     tot_act = sum(1 for ln in lines if CLASS_ACTIVITY.match(ln))
     tot_svc = sum(1 for ln in lines if CLASS_SERVICE.match(ln))
@@ -174,8 +174,8 @@ def derive_totals_from_classnames(text: str) -> Dict[str, int]:
 
 def derive_totals_from_provider_info(text: str, pkg: str) -> int:
     """
-    app.provider.info 출력에서 해당 패키지 블록의 Authority 라인 개수를 총 provider 수로 계산.
-    포맷 예:
+    Calculates the total number of providers by counting 'Authority' lines within the corresponding package block from the app.provider.info output.
+    Example format:
       Package: com.foo.bar
         Authority: com.foo.bar.provider
         Permission Read: ...
@@ -192,12 +192,12 @@ def derive_totals_from_provider_info(text: str, pkg: str) -> int:
         if in_pkg:
             if PROVIDER_AUTH_LINE.match(ln):
                 count += 1
-            # 다음 Package 블록 시작 시 자동 종료는 위 루프에서 처리됨(다음 m_pkg에서 in_pkg False)
+            # The loop handles exiting the block automatically when the next 'Package:' line is found (in_pkg becomes False).
     return count
 
 
 def parse_scanners(text: str) -> Tuple[int, int, List[str]]:
-    """provider 스캐너 결과: SQLi/Traversal 히트 수, content:// URI 목록."""
+    """Provider scanner results: SQLi/Traversal hit count, list of content:// URIs."""
     uris = sorted(set(URI_PATTERN.findall(text)))
     sqli = len(SQLI_HIT.findall(text))
     trav = len(TRAVERSAL_HIT.findall(text))
@@ -211,7 +211,7 @@ def parse_single_app(log_path: Path) -> Tuple[Dict, List[Dict]]:
     # 1) Attack Surface
     attack = parse_attack_surface(text)
 
-    # 2) 클래스명 기반 totals 보완 (activity/service/receiver)
+    # 2) Supplement totals based on class names (activity/service/receiver)
     totals_from_info = derive_totals_from_classnames(text)
     if (attack['total_activities'] in (None, 0)) and totals_from_info['total_activities_from_info'] > 0:
         attack['total_activities'] = totals_from_info['total_activities_from_info']
@@ -220,12 +220,12 @@ def parse_single_app(log_path: Path) -> Tuple[Dict, List[Dict]]:
     if (attack['total_receivers'] in (None, 0)) and totals_from_info['total_receivers_from_info'] > 0:
         attack['total_receivers'] = totals_from_info['total_receivers_from_info']
 
-    # 3) provider 총개수 보완 (Authority 카운트)
+    # 3) Supplement total provider count (from Authority count)
     prov_total = derive_totals_from_provider_info(text, app_id)
     if (attack['total_providers'] in (None, 0)) and prov_total > 0:
         attack['total_providers'] = prov_total
 
-    # 4) provider 스캐너
+    # 4) Provider scanners
     sqli, trav, uris = parse_scanners(text)
 
     rec = {
@@ -256,7 +256,7 @@ def collect_logs(root_glob: str) -> List[Path]:
 
 
 def try_merge_batch_summary(df: pd.DataFrame, roots: List[str]) -> pd.DataFrame:
-    """dz_batch/single_dz가 만든 summary.csv가 있으면 병합."""
+    """Merges with summary.csv if it was created by dz_batch/single_dz."""
     found = []
     for r in roots:
         p = Path(r) / 'summary.csv'
@@ -273,11 +273,11 @@ def try_merge_batch_summary(df: pd.DataFrame, roots: List[str]) -> pd.DataFrame:
     return df
 
 
-# ---------- 메인 ----------
+# ---------- Main ----------
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--root', required=True, help="dz_out_* 디렉토리 또는 글롭 (예: 'dz_out_*')")
-    ap.add_argument('--outdir', default='outputs', help='저장 폴더 (기본: outputs)')
+    ap.add_argument('--root', required=True, help="dz_out_* directory or glob (e.g., 'dz_out_*')")
+    ap.add_argument('--outdir', default='outputs', help='Output folder (default: outputs)')
     args = ap.parse_args()
 
     os.makedirs(args.outdir, exist_ok=True)
@@ -297,11 +297,11 @@ def main():
     df = pd.DataFrame(rows).sort_values('app_id')
     df_uris = pd.DataFrame(uri_rows).sort_values(['app_id', 'uri'])
 
-    # summary.csv 병합(있을 때만)
+    # Merge summary.csv (if it exists)
     unique_roots = list({str(p.parent) for p in logs})
     df = try_merge_batch_summary(df, unique_roots)
 
-    # export rate 계산 (total이 비어있거나 0이면 0으로)
+    # Calculate export rate (treat as 0 if total is empty or 0)
     for comp in ('activities', 'services', 'receivers', 'providers'):
         tot = f'total_{comp}'
         exp = f'exported_{comp}'
@@ -309,7 +309,7 @@ def main():
         denom = df[tot].replace(0, pd.NA)
         df[rate] = (df[exp] / denom).fillna(0)
 
-    # 간단 위험지표
+    # Simple risk indicator
     df['riskish'] = (
         df[['exported_activities','exported_services','exported_receivers','exported_providers']].fillna(0).sum(axis=1)
         + df['sqli_hits'].fillna(0) + df['traversal_hits'].fillna(0)
@@ -322,7 +322,7 @@ def main():
     df.to_csv(summary_csv, index=False)
     df_uris.to_csv(uris_csv, index=False)
 
-    # 상위 20 표 (tabulate 필요)
+    # Top 20 table (requires tabulate)
     cols = [
         'app_id',
         'uris_found','sqli_hits','traversal_hits',

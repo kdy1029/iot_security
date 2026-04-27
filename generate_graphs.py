@@ -4,17 +4,17 @@ import matplotlib.pyplot as plt
 from sqlalchemy import create_engine, text
 
 # -------------------------------------------------
-# 0) 출력 디렉토리 보장
+# 0) Ensure output directories exist
 # -------------------------------------------------
 os.makedirs("tables", exist_ok=True)
 os.makedirs("figures", exist_ok=True)
 
 # -------------------------------------------------
-# 1) DB 연결
+# 1) Database Connection
 # -------------------------------------------------
 engine = create_engine("postgresql://postgres:dud0926!@localhost:5432/iot_security")
 
-# 작은 헬퍼: DataFrame을 LaTeX로 저장 (Jinja2 없으면 tabulate로 폴백)
+# Small helper: Save DataFrame to LaTeX (fallback to tabulate if Jinja2 is missing)
 def save_latex(df: pd.DataFrame, path: str, floatfmt="%.1f"):
     try:
         df.to_latex(path, index=False, float_format=floatfmt)
@@ -22,7 +22,7 @@ def save_latex(df: pd.DataFrame, path: str, floatfmt="%.1f"):
         try:
             from tabulate import tabulate
         except ImportError:
-            # tabulate도 없으면 간단한 latex tabular 최소본 생성
+            # If tabulate is also missing, create a minimal LaTeX tabular
             cols = " & ".join(map(str, df.columns)) + r" \\"
             rows = "\n".join(" & ".join(map(str, r)) + r" \\" for r in df.values)
             content = (
@@ -38,7 +38,7 @@ def save_latex(df: pd.DataFrame, path: str, floatfmt="%.1f"):
 
 with engine.connect() as conn:
     # -------------------------------------------------
-    # 2) Dangerous Permissions 테이블 (Top 10)
+    # 2) Dangerous Permissions Table (Top 10)
     # -------------------------------------------------
     sql_permissions = """
     select permission, 
@@ -52,7 +52,7 @@ with engine.connect() as conn:
     save_latex(df_perm, "tables/permissions.tex", floatfmt="%.1f")
 
     # -------------------------------------------------
-    # 3) Insecure Flags 테이블 (한 줄 집계 → 2열 테이블로 변환)
+    # 3) Insecure Flags Table (convert one-line aggregate to a 2-column table)
     # -------------------------------------------------
     sql_flags = """
     select 
@@ -62,10 +62,10 @@ with engine.connect() as conn:
     from v_mobsf_flags;
     """
     df_flags_row = pd.read_sql(sql_flags, conn)
-    # 세로 형태로 바꿔 라텍스 테이블로 저장
+    # Transpose to a vertical format and save as a LaTeX table
     df_flags = df_flags_row.T.reset_index()
     df_flags.columns = ["Flag", "Percentage"]
-    # 보기 좋은 라벨로 교체(선택)
+    # Replace with nice labels (optional)
     nice_map = {
         "pct_backup": "Allow Backup",
         "pct_cleartext": "Cleartext Traffic",
@@ -75,7 +75,7 @@ with engine.connect() as conn:
     save_latex(df_flags, "tables/flags.tex", floatfmt="%.1f")
 
     # -------------------------------------------------
-    # 4) Top Domains 그래프 (Top 20)
+    # 4) Top Domains Graph (Top 20)
     # -------------------------------------------------
     sql_domains = """
     select domain, count(distinct app_id) as apps
@@ -86,7 +86,7 @@ with engine.connect() as conn:
     """
     df_dom = pd.read_sql(sql_domains, conn)
 
-# 도메인 수직 막대 (가로 막대가 가독성 좋음)
+# Horizontal bar chart for domains (more readable than vertical)
 plt.figure(figsize=(8, 5))
 ax = plt.gca()
 df_dom.plot(kind="barh", x="domain", y="apps", legend=False, ax=ax)
@@ -99,7 +99,7 @@ plt.savefig("figures/top_domains.pdf")
 
 with engine.connect() as conn:
     # -------------------------------------------------
-    # 5) Risk Score Histogram (바인드 파라미터로 % 처리)
+    # 5) Risk Score Histogram (use bind parameters for `%` handling)
     # -------------------------------------------------
     sql_risk = text("""
     with dang as (

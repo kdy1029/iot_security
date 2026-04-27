@@ -4,13 +4,13 @@ from sqlalchemy import create_engine, text
 from tabulate import tabulate
 
 # -------------------------------------------------
-# 0) 출력 디렉토리 보장
+# 0) Ensure output directories exist
 # -------------------------------------------------
 os.makedirs("tables", exist_ok=True)
 os.makedirs("figures", exist_ok=True)
 
 # -------------------------------------------------
-# 1) DB 연결
+# 1) Database Connection
 #    Tip: if you're on psycopg3, use "postgresql+psycopg://..."
 # -------------------------------------------------
 engine = create_engine("postgresql://postgres:dud0926!@localhost:5432/iot_security")
@@ -42,13 +42,13 @@ LIMIT 20;
 """)
 
 # -------------------------------------------------
-# 3) 쿼리 실행 (use a Connection and read_sql_query)
+# 3) Execute the query (use a Connection and read_sql_query)
 # -------------------------------------------------
 with engine.connect() as conn:
     df_creds = pd.read_sql_query(sql, conn)
 
 # -------------------------------------------------
-# 4) LaTeX 테이블 저장
+# 4) Save as a LaTeX table
 # -------------------------------------------------
 with open("tables/credentials.tex", "w", encoding="utf-8") as f:
     f.write(
